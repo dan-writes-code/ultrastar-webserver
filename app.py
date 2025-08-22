@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template, request, send_file
 from flask import Flask
+from flask import jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import class_mapper
@@ -125,9 +126,32 @@ def index():
 
 @app.route('/api/songs')
 def api_songs():
-    songs = handle_song_request(request)
-    
-    return {'songs': songs}
+    search = request.args.get('search', '').strip()
+
+    query = db.session.query(Song)
+
+    if search:
+        like_search = f"%{search}%"
+        query = query.filter(
+            (Song.artist.ilike(like_search)) |
+            (Song.title.ilike(like_search)) |
+            (Song.year.cast(db.String).ilike(like_search))
+        )
+
+    songs = query.order_by(Song.artist, Song.title).limit(100).all()  # limit for performance
+
+    result = []
+    for s in songs:
+        result.append({
+            "artist": s.artist,
+            "title": s.title,
+            "year": s.year,
+            "times_played": s.times_played,
+            "mp3_path": s.mp3_path
+        })
+
+    return jsonify({"songs": result})
+
 
 
 

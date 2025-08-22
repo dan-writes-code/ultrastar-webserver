@@ -2,3 +2,5 @@
 instance
 __pycache__
 songs.db
+web.env
+tunnel.env

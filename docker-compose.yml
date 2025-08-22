@@ -1,0 +1,15 @@
+services:
+  webserver:
+    build: .
+    expose:
+      - 5000
+    volumes:
+      - /home/karaoke/.ultrastardx:/usdx
+    restart: unless-stopped
+    env_file: "web.env"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    env_file: "tunnel.env"
