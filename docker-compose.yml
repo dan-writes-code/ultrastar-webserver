@@ -1,6 +1,6 @@
 services:
   webserver:
-    build: .
+    image: ultrastar-webserver
     expose:
       - 5000
     volumes:

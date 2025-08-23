@@ -10,29 +10,36 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 
-<body class="bg-gray-100 text-gray-800">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
-        <h1 class="text-3xl font-bold mb-6 text-center">Ultrastar Song DB</h1>
+<body class="bg-gray-100 text-gray-900">
+    <div class="container mx-auto px-4 py-8 max-w-4xl sm:max-w-2xl">
+        <h1 class="text-3xl font-bold mb-4 text-center">Ultrastar Song DB</h1>
 
-        <div class="mb-4">
+        <div class="mb-4 flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
             <input type="text" id="search_box" placeholder="Search by artist, title or year"
-                class="w-full px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-800 focus:outline-none focus:ring focus:ring-blue-400">
+                class="w-full px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring focus:ring-blue-400">
+            <select id="sort_by" class="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring focus:ring-blue-400">
+                <option value="artist" selected>Artist</option>
+                <option value="title">Title</option>
+                <option value="year">Year</option>
+                <option value="id">Date Added</option>
+            </select>
+            <button id="sort_order_btn" class="px-4 py-2 bg-blue-500 text-white rounded-md">Asc/Desc</button>
         </div>
 
-        <p class="mb-4">Showing <span id="song_count">{{ songs|length }}</span> songs.</p>
+        <p class="mb-2">Showing <span id="song_count">{{ songs|length }}</span> songs.</p>
 
         <div id="song_list" class="space-y-2">
             {% for song in songs %}
-            <div class="song-item bg-white p-4 rounded-md shadow cursor-pointer">
-                <div class="song-header flex justify-between items-center flex-wrap">
+            <div class="song-item bg-white p-4 rounded-md shadow cursor-pointer" data-id="{{ song.id }}">
+                <div class="song-header flex justify-between items-center">
                     <div class="break-words">
                         <div class="artist font-semibold">{{ song.artist }}</div>
                         <div class="title">{{ song.title }}</div>
                     </div>
-                    <button class="details-btn text-blue-500 font-bold mt-2 sm:mt-0">Details</button>
+                    <button class="details-btn text-blue-500 font-bold">Details</button>
                 </div>
-                <div class="song-details hidden mt-2 p-2 bg-gray-50 border border-gray-200 rounded">
-                    <p>Year: {{ song.year }}</p>
+                <div class="song-details hidden mt-2">
+                    <p class="year">Year: {{ song.year if song.year else 'None' }}</p>
                     <p>Times Played: {{ song.times_played }}</p>
                     <button class="play-btn bg-blue-500 text-white px-4 py-2 mt-2 rounded-md"
                         mp3_path="{{ song.mp3_path }}">Play</button>
@@ -43,71 +50,111 @@
     </div>
 
     <script>
-    $(document).ready(function () {
-        var currentAudio = null;
-        var currentBtn = null;
+        $(document).ready(function () {
+            var currentAudio = null;
+            var currentBtn = null;
+            var sortAsc = true; // Ascending by default
 
-        // Toggle details on entire song item click
-        $(document).on('click', '.song-item', function () {
-            var details = $(this).find('.song-details');
+            // Toggle details on entire song item click
+            $(document).on('click', '.song-item', function () {
+                var details = $(this).find('.song-details');
+                $('.song-details').not(details).slideUp();
+                details.slideToggle();
+            });
 
-            // Collapse any other open details
-            $('.song-details').not(details).slideUp();
+            // Play/pause button
+            $(document).on('click', '.play-btn', function (e) {
+                e.stopPropagation(); // Prevent collapsing when clicking play
+                var mp3_path = $(this).attr('mp3_path');
 
-            // Toggle this one
-            details.slideToggle();
-        });
-
-        // Play/pause button
-        $(document).on('click', '.play-btn', function (e) {
-            e.stopPropagation();
-
-            var mp3_path = $(this).attr('mp3_path');
-
-            if (!$(this).data('audio')) {
-                var audio = new Audio('/api/mp3?mp3_path=' + mp3_path);
-                audio.currentTime = 20;
-                $(this).data('audio', audio);
-            }
-
-            var audio = $(this).data('audio');
-
-            if (!audio.paused) {
-                audio.pause();
-                $(this).text('Play');
-            } else {
-                if (currentAudio && currentAudio !== audio) {
-                    currentAudio.pause();
-                    if (currentBtn) currentBtn.text('Play');
+                if (!$(this).data('audio')) {
+                    var audio = new Audio('/api/mp3?mp3_path=' + mp3_path);
+                    audio.currentTime = 20;
+                    $(this).data('audio', audio);
                 }
-                audio.play();
-                currentAudio = audio;
-                currentBtn = $(this);
-                $(this).text('Pause');
-            }
-        });
 
-        // Live search
-        $('#search_box').on('input', function () {
-            var term = $(this).val().toLowerCase();
-            var count = 0;
+                var audio = $(this).data('audio');
 
-            $('.song-item').each(function () {
-                var artist = $(this).find('.artist').text().toLowerCase();
-                var title = $(this).find('.title').text().toLowerCase();
-                var year = $(this).find('.song-details p:first').text().toLowerCase();
-
-                if (artist.includes(term) || title.includes(term) || year.includes(term)) {
-                    $(this).show();
-                    count++;
+                if (!audio.paused) {
+                    audio.pause();
+                    $(this).text('Play');
                 } else {
-                    $(this).hide();
+                    if (currentAudio && currentAudio !== audio) {
+                        currentAudio.pause();
+                        if (currentBtn) currentBtn.text('Play');
+                    }
+                    audio.play();
+                    currentAudio = audio;
+                    currentBtn = $(this);
+                    $(this).text('Pause');
                 }
             });
 
-            $('#song_count').text(count);
+            // Live search
+            $('#search_box').on('input', function () {
+                var term = $(this).val().toLowerCase();
+                var count = 0;
+
+                $('.song-item').each(function () {
+                    var artist = $(this).find('.artist').text().toLowerCase();
+                    var title = $(this).find('.title').text().toLowerCase();
+                    var year = $(this).find('.year').text().toLowerCase();
+
+                    if (artist.includes(term) || title.includes(term) || year.includes(term)) {
+                        $(this).show();
+                        count++;
+                    } else {
+                        $(this).hide();
+                    }
+                });
+
+                $('#song_count').text(count);
+                sortAndRender();
+            });
+
+            // Sort dropdown change
+            $('#sort_by').on('change', function () {
+                sortAsc = true;
+                sortAndRender();
+            });
+
+            // Sort order button
+            $('#sort_order_btn').on('click', function () {
+                sortAsc = !sortAsc;
+                sortAndRender();
+            });
+
+            function sortAndRender() {
+                var sort = $('#sort_by').val();
+                var items = $('.song-item:visible').get();
+
+                items.sort(function(a, b){
+                    var $a = $(a), $b = $(b);
+                    var aText, bText;
+
+                    if(sort === 'year'){
+                        aText = parseInt($a.find('.year').text().replace('Year:','').trim());
+                        bText = parseInt($b.find('.year').text().replace('Year:','').trim());
+                        if(isNaN(aText)) aText = sortAsc ? Number.MAX_SAFE_INTEGER : Number.MIN_SAFE_INTEGER;
+                        if(isNaN(bText)) bText = sortAsc ? Number.MAX_SAFE_INTEGER : Number.MIN_SAFE_INTEGER;
+                        return sortAsc ? aText - bText : bText - aText;
+                    } else if(sort === 'id'){
+                        aVal = parseInt($a.data('id'));
+                        bVal = parseInt($b.data('id'));
+                        return sortAsc ? aVal - bVal : bVal - aVal;
+                    } else {
+                        aText = $a.find('.' + sort).text().toLowerCase();
+                        bText = $b.find('.' + sort).text().toLowerCase();
+                        return sortAsc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+                    }
+                });
+
+                $('#song_list').append(items);
+            }
+
+            // Initial sort
+            sortAndRender();
         });
-    });
     </script>
 </body>
 
